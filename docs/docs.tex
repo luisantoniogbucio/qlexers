@@ -1,0 +1,363 @@
+\documentclass[10pt]{book}
+\usepackage[spanish]{babel}
+\usepackage{tikz,amsmath,amsthm,latexsym,amssymb,amsfonts,graphicx,blindtext,listings, hyperref,xcolor, tcolorbox}
+%\usepackage{times}
+%\usepackage[sfdefault]{notomath}
+\usetikzlibrary{automata, positioning, arrows}
+\usepackage[a4paper, margin=2.54cm]{geometry}
+\usepackage{sectsty}
+
+\definecolor{darkercustomcolor}{RGB}{20, 140, 154} %same as arsenic (lazy me )
+
+\sectionfont{\color{darkercustomcolor}}
+\subsectionfont{\color{darkercustomcolor}}
+\subsubsectionfont{\color{darkercustomcolor}}
+
+\definecolor{arsenic}{RGB}{20, 140, 154}
+\definecolor{defTitleColor}{RGB}{255, 87, 34} % orange color
+\definecolor{defBackgroundColor}{rgb}{0.99, 0.97, 0.90}
+
+\definecolor{exampleBackgroundColor}{rgb}{0.95, 0.85, 0.90}
+\definecolor{exampleFontColor}{rgb}{0.76, 0.13, 0.28}
+
+\definecolor{lighterTheoremBackgroundColor}{rgb}{0.90, 0.94, 0.98}
+\definecolor{theoremFontColor}{rgb}{0.0, 0.33, 0.71}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=arsenic,
+    filecolor=magenta,
+    urlcolor=arsenic,
+    pdfpagemode=FullScreen,
+}
+
+\geometry{
+ top=.5in,
+}
+
+
+\newcommand{\solution}{\textcolor{exampleFontColor}{\textit{Solución:}}}
+
+% Theorem environment setup
+\newtcolorbox[auto counter]{theorem}[3][]{%
+  colback=lighterTheoremBackgroundColor,
+  colframe=lighterTheoremBackgroundColor, % frame color same as background
+  coltitle=theoremFontColor,
+  colbacktitle=lighterTheoremBackgroundColor, % background color for the title
+  title=\textit{#2~\thetcbcounter\ \textcolor{black}{#3}}, % Title format: "Type counter Title"
+  fonttitle=\bfseries,
+  boxrule=0pt, % No border for the box
+  arc=0pt, % No rounded corners
+  titlerule=0pt, % No horizontal line below the title
+  toptitle=3mm, % Space above the title text
+  bottomtitle=0mm, % Space below the title text
+  left=2mm, % Space to the left inside the box
+  right=2mm, % Space to the right inside the box
+  top=2mm, % Space above inside the box
+  bottom=5mm, % Space below inside the box
+  center title, % Centers the title
+  halign=justify, % Justifies the text inside the box
+  halign title=left, % Aligns the title text to the left
+  #1
+}
+
+% Define the 'example' environment
+\newtcolorbox[auto counter]{example}[3][]{%
+  colback=white, % Transparent background
+  colframe=exampleBackgroundColor,
+  coltitle=exampleFontColor,
+  colbacktitle=white, % Transparent background for the title
+  title=\textit{#2~\thetcbcounter\ \textcolor{black}{#3}}, % Title format: "Type counter Title"
+  fonttitle=\bfseries,
+  boxrule=0pt, % No border for the box
+  arc=0pt, % No rounded corners
+  titlerule=0pt, % No horizontal line below the title
+  toptitle=3mm, % Space above the title text
+  bottomtitle=0mm, % Space below the title text
+  left=2mm, % Space to the left inside the box
+  right=2mm, % Space to the right inside the box
+  top=2mm, % Space above inside the box
+  bottom=5mm, % Space below inside the box
+  center title, % Centers the title
+  halign=justify, % Justifies the text inside the box
+  halign title=left, % Aligns the title text to the left
+  #1
+}
+
+% Define the 'definition' environment
+\newtcolorbox[auto counter]{definition}[3][]{%
+  colback=defBackgroundColor,
+  colframe=defBackgroundColor, % frame color same as background
+  coltitle=defTitleColor,
+  colbacktitle=defBackgroundColor, % background color for the title
+  title=\textit{\thetcbcounter\ #2~ \textcolor{black}{#3}}, % Title format: "Type counter Title"
+  fonttitle=\bfseries,
+  boxrule=0pt, % No border for the box
+  arc=0pt, % No rounded corners
+  titlerule=0pt, % No horizontal line below the title
+  toptitle=3mm, % Space above the title text
+  bottomtitle=0mm, % Space below the title text
+  left=2mm, % Space to the left inside the box
+  right=2mm, % Space to the right inside the box
+  top=2mm, % Space above inside the box
+  bottom=5mm, % Space below inside the box
+  center title, % Centers the title
+  halign=justify, % Justifies the text inside the box
+  halign title=left, % Aligns the title text to the left
+  #1
+}
+
+\title{%
+   \Large Universidad Nacional Autónoma de México  \\
+    Facultad de Ciencias \\
+   %\LARGE Funciones Recursivas \& Computabilidad \\[0.25em]
+   %\LARGE Lenguajes de Programación\\[0.25em]
+   %\LARGE Lógica Matemática II\\[0.25em]
+   %\LARGE Redes Neuronales\\[0.25em]
+   %\LARGE Teoría de la Información\\[0.25em]
+   \LARGE Compiladores\\[0.25em]
+   \normalsize{Proyecto 1}
+   %\normalsize{Examen }
+   %\normalsize{Tarea }
+}
+\author{Cruz Pineda Fernando\\
+Espinosa Roque Rebeca\\
+Guzmán Bucio Luis Antonio\\
+Morales Martínez Edgar Jesús\\
+Vázquez Dávila José Adolfo}
+
+\date{\today}
+
+\begin{document}
+\lstdefinestyle{customc}{
+  numberstyle=\ttfamily\footnotesize,
+  belowcaptionskip=1\baselineskip,
+  breaklines=true,
+  xleftmargin=\parindent,
+  language=C,
+  showstringspaces=false,
+  basicstyle=\footnotesize\ttfamily,
+  keywordstyle=\bfseries\color{green!40!black},
+  commentstyle=\ttfamily\color{gray!100!black},
+  identifierstyle=\color{violet},
+  stringstyle=\color{teal},
+ %% numbers=left,                    
+ %% numbersep=5pt, 
+}
+\lstset{escapechar=@,style=customc} 
+
+\lstdefinestyle{BNFStyle}{
+  numberstyle=\ttfamily\footnotesize,
+  belowcaptionskip=1\baselineskip,
+  breaklines=true,
+  xleftmargin=0pt, % Set xleftmargin to 0pt to align to the left
+  language={}, % Remove the C language specification
+  morekeywords={::=, |}, % Add BNF symbols as keywords
+  showstringspaces=false,
+  basicstyle=\footnotesize\ttfamily,
+  keywordstyle=\bfseries\color{green!40!black}, % You may want to change the color for BNF
+  commentstyle=\ttfamily\color{gray!100!black},
+  identifierstyle=\color{black},
+  stringstyle=\color{teal},
+  %numbers=left, % Uncomment this to show line numbers
+  numbersep=5pt,
+}
+
+
+\maketitle
+
+\vspace{-0.7cm}
+\hrule
+\vspace{0.5cm}
+\tableofcontents
+
+\clearpage
+
+\section{Introducción}
+
+\subsection{Objetivos}
+
+\begin{itemize}
+    \item Construir un lenguaje IMP a partir de la teoría de lenguajes formales y autómatas como aplicación práctica en la materia de compiladores.
+    \item Implementar las transformaciones ER $\to$ AFN$\varepsilon$ $\to$ AFN $\to$ AFD $\to$ AFD$_{\text{min}}$ $\to$ MDD $\to$ función \texttt{lexer}.
+    \item Validar el analizador léxico en casos de prueba de IMP.
+\end{itemize}
+
+\section{Preliminares Formales}
+
+\subsection{Gramática de IMP}
+
+El lenguaje IMP es un lenguaje imperativo simple que constituye un fragmento mínimo de lenguajes convencionales como C y Java. Su sintaxis se define mediante las siguientes producciones:
+
+\begin{lstlisting}[style=BNFStyle]
+Aexp ::= n | x | Aexp + Aexp | Aexp - Aexp | Aexp * Aexp
+Bexp ::= true | false | Aexp = Aexp | Aexp @$\leq$@ Aexp | not Bexp | Bexp and Bexp
+Com  ::= skip | x := Aexp | Com; Com | if Bexp then Com else Com | while Bexp do Com
+\end{lstlisting}
+
+donde $\texttt{Aexp}$ denota expresiones aritméticas, $\texttt{Bexp}$ expresiones booleanas, y $\texttt{Com}$ comandos.
+
+\subsection{Formalización}
+
+\subsubsection{Lenguajes Formales}
+
+\begin{definition}[]{Definición}{Alfabeto, Cadena, Cerradura de Kleene \& Lenguaje Formal}
+
+  \begin{enumerate}
+
+\item Un \textbf{alfabeto} $\Sigma$ es un conjunto finito no vacío de símbolos.
+
+
+\item Una \textbf{cadena} sobre un alfabeto $\Sigma$ es una secuencia finita de símbolos de $\Sigma$. La cadena vacía se denota por $\varepsilon$.
+
+\item La \textbf{cerradura de Kleene} de un alfabeto $\Sigma$, denotada por $\Sigma^*$, es el conjunto de todas las cadenas finitas que pueden formarse con símbolos de $\Sigma$, incluyendo la cadena vacía $\varepsilon$.
+
+\item Un \textbf{lenguaje formal} $L$ sobre un alfabeto $\Sigma$ es un subconjunto de $\Sigma^*$, es decir, $L \subseteq \Sigma^*$.
+
+\item Un \textbf{lexema} es una secuencia de caracteres en el programa fuente que coincide con el patrón de un token. Representa la instancia concreta de un token en el código fuente.
+
+\item Un \textbf{token} es un par ordenado que consta de un nombre de token y un valor opcional. El nombre del token es una categoría sintáctica que representa una unidad léxica, mientras que el valor típicamente corresponde al lexema asociado. Formalmente, un token puede representarse como $\langle \text{nombre}, \text{valor} \rangle$, donde el nombre identifica la clase léxica (e.g., identificador, palabra reservada, operador) y el valor preserva el lexema correspondiente.
+
+\item Un \textbf{patrón} es una descripción formal de la estructura que pueden tener los lexemas de un token. Los patrones se especifican típicamente mediante expresiones regulares.
+\end{enumerate}
+
+\end{definition}
+
+\subsubsection{Expresiones Regulares}
+
+Las expresiones regulares constituyen un formalismo para especificar lenguajes regulares. Proporcionan una notación algebraica que describe patrones de cadenas mediante la aplicación recursiva de operadores sobre un alfabeto base.
+
+\begin{definition}[]{Definición}{Expresión Regular}
+Sea $\Sigma$ un alfabeto. Las \textbf{expresiones regulares} sobre $\Sigma$ y los lenguajes que denotan se definen recursivamente como sigue:
+
+\textbf{Casos base:}
+\begin{itemize}
+    \item $\emptyset$ es una expresión regular y $L(\emptyset) = \emptyset$.
+    \item $\varepsilon$ es una expresión regular y $L(\varepsilon) = \{\varepsilon\}$.
+    \item Para cada $a \in \Sigma$, $a$ es una expresión regular y $L(a) = \{a\}$.
+\end{itemize}
+
+\textbf{Paso inductivo:} Sean $E$ y $F$ expresiones regulares sobre $\Sigma$. Entonces:
+\begin{itemize}
+    \item $(E + F)$ es una expresión regular y $L(E + F) = L(E) \cup L(F)$.
+    \item $(E \cdot F)$ es una expresión regular y $L(E \cdot F) = L(E)L(F) = \{uv \mid u \in L(E) \land v \in L(F)\}$.
+    \item $(E^*)$ es una expresión regular y $L(E^*) = (L(E))^* = \bigcup_{i=0}^{\infty} (L(E))^i$.
+    \item $(E)$ es una expresión regular y $L((E)) = L(E)$.
+\end{itemize}
+
+donde $L(E)$ denota el lenguaje descrito por la expresión regular $E$.
+\end{definition}
+
+\begin{theorem}[]{Teorema.}{Equivalencia con Lenguajes Regulares}
+Un lenguaje $L$ es regular si y solo si existe una expresión regular $E$ tal que $L = L(E)$.
+\end{theorem}
+
+\begin{proof}
+  \(\to :\) Construimos inductivamente un autómata finito no determinista con transiciones $\varepsilon$ (AFN$\varepsilon$) a partir de la estructura de la expresión regular, aplicando las construcciones de Thompson para cada operador. \\
+  \(\leftarrow : \) Dado un autómata finito determinista que reconoce $L$, se aplica el algoritmo de eliminación de estados para obtener una expresión regular equivalente. Los detalles constructivos de ambas direcciones establecen la equivalencia expresiva entre expresiones regulares y autómatas finitos.
+\end{proof}
+
+\subsubsection{Expresiones Regulares en IMP}
+
+Habiendo establecido la definición formal de expresiones regulares, procedemos a especificar la sintaxis léxica del lenguaje IMP. El alfabeto $\Sigma$ sobre el cual se construyen los tokens de IMP se define como:
+
+\[
+\Sigma = \{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -, +, *, a, \ldots, z, A, \ldots, Z\}
+\]
+
+donde $a, \ldots, z$ denota el alfabeto castellano en minúsculas y $A, \ldots, Z$ el alfabeto castellano en mayúsculas.
+
+A continuación especificamos los tokens mediante expresiones regulares. Cada definición consiste en un identificador seguido de su expresión regular correspondiente.
+
+\textbf{Palabras reservadas:}
+\begin{align*}
+\texttt{not} &\to \texttt{not} \\
+\texttt{and} &\to \texttt{and} \\
+\texttt{if} &\to \texttt{if} \\
+\texttt{then} &\to \texttt{then} \\
+\texttt{else} &\to \texttt{else} \\
+\texttt{skip} &\to \texttt{skip} \\
+\texttt{while} &\to \texttt{while} \\
+\texttt{do} &\to \texttt{do} \\
+\texttt{true} &\to \texttt{true} \\
+\texttt{false} &\to \texttt{false}
+\end{align*}
+
+\textbf{Enteros:}
+\begin{align*}
+\texttt{dígito} &\to 0 \mid 1 \mid \cdots \mid 9 \\
+\texttt{Z} &\to 1 \mid 2 \mid \cdots \mid 9 \\
+\texttt{entero} &\to \texttt{Z} \cdot \texttt{dígito}^* + (- \cdot \texttt{Z} \cdot \texttt{dígito}^*)
+\end{align*}
+
+\textbf{Operadores:}
+
+Para distinguir los operadores del metalenguaje de expresiones regulares de aquellos pertenecientes a IMP, subrayamos estos últimos.
+\begin{align*}
+\texttt{PLUS} &\to \underline{+} \\
+\texttt{MINUS} &\to \underline{-} \\
+\texttt{TIMES} &\to \underline{*} \\
+\texttt{EQ} &\to = \\
+\texttt{LEQ} &\to \leq \\
+\texttt{SEMICOLON} &\to ; \\
+\texttt{ASSIGN} &\to :=
+\end{align*}
+
+\textbf{Delimitadores:}
+\begin{align*}
+\texttt{LPAREN} &\to ( \\
+\texttt{RPAREN} &\to )
+\end{align*}
+
+\textbf{Espacios en blanco:}
+\begin{align*}
+\texttt{espacio} &\to \textvisiblespace \mid \texttt{\textbackslash t} \mid \texttt{\textbackslash n} \\
+\texttt{espacios} &\to \texttt{espacio}^+
+\end{align*}
+
+\textbf{Comentarios:}
+\begin{align*}
+\texttt{comentario} &\to \texttt{//} \cdot \Sigma^* \cdot \texttt{\textbackslash n}
+\end{align*}
+
+\textbf{Identificadores:}
+\begin{align*}
+\texttt{letra} &\to A \mid B \mid \cdots \mid Z \mid a \mid b \mid \cdots \mid z \\
+\texttt{id} &\to \texttt{letra} \cdot (\texttt{letra} \mid \texttt{dígito})^*
+\end{align*}
+
+\begin{thebibliography}{9}
+
+\bibitem{hopcroft}
+John E. Hopcroft, Rajeev Motwani, Jeffrey D. Ullman.
+\textit{Introduction to Automata Theory, Languages, and Computation} (3rd ed.).
+Pearson, 2006.
+
+\bibitem{dragon}
+Alfred V. Aho, Monica S. Lam, Ravi Sethi, Jeffrey D. Ullman.
+\textit{Compilers: Principles, Techniques, and Tools} (2nd ed.).
+Pearson Education, 2006.
+
+\bibitem{romero}
+M. S. Romero.
+\textit{Compiladores: Unidad 2: Análisis Léxico}.
+Facultad de Ciencias, UNAM, 2026-1.
+\url{https://lambdasspace.github.io/CMP/notas/cmp_n08.pdf}
+
+\bibitem{sipser}
+Michael Sipser.
+\textit{Introduction to the Theory of Computation} (3rd ed.).
+Cengage Learning, 2012.
+
+\bibitem{winskel}
+Glynn Winskel.
+\textit{The Formal Semantics of Programming Languages: An Introduction}.
+MIT Press, 1993.
+
+\bibitem{nipkow}
+Tobias Nipkow, Gerwin Klein.
+\textit{Concrete Semantics with Isabelle/HOL}.
+Springer, 2014.
+
+\end{thebibliography}
+\end{document}
