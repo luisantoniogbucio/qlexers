@@ -22,4 +22,4 @@ data Token
   | TSemi
   | TLParen
   | TRParen
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)

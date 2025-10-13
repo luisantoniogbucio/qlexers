@@ -7,7 +7,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.List (partition)
 
--- DFA con estados enteros (más fácil para minimizar)
+-- DFA con estados enteros
 data DFAInt = DFAInt
   { estadosInt :: Set Int                          -- Estados numerados
   , alfabetoInt :: Set Char                        -- Alfabeto
@@ -87,7 +87,7 @@ encontrarParticion :: [[Int]] -> Int -> Int
 encontrarParticion particiones estado =
   case [i | (i, p) <- zip [0..] particiones, estado `elem` p] of
     (i:_) -> i
-    [] -> -1  -- Estado no encontrado
+    [] -> -1 
 
 -- Construye el DFA minimizado a partir de las particiones finales
 construirDFAMinimo :: DFAInt -> [[Int]] -> DFAInt

@@ -14,11 +14,9 @@ import qualified Data.Set as Set
 -- Define los patrones de tokens para IMP (orden importante: más específicos primero)
 patronesIMP :: [(RegExp, Token)]
 patronesIMP = 
-  [ -- Operadores de dos caracteres (antes que los de uno)
+  [ 
     (cadena ":=", TAssign)
   , (cadena "<=", TLeq)
-  
-  -- Palabras clave (antes que identificadores)
   , (cadena "skip", TSkip)
   , (cadena "if", TIf)
   , (cadena "then", TThen)
@@ -29,31 +27,23 @@ patronesIMP =
   , (cadena "false", TFalse)
   , (cadena "not", TNot)
   , (cadena "and", TAnd)
-  
-  -- Números (antes que identificadores)
   , (unoOMas digito, TNum 0)
-  
-  -- Identificadores (al final)
   , (Concat letra (Star (Union letra digito)), TId "")
-  
-  -- Operadores de un carácter
   , (Char '+', TPlus)
   , (Char '-', TMinus)
   , (Char '*', TTimes)
   , (Char '=', TEq)
-  
-  -- Delimitadores
   , (Char ';', TSemi)
   , (Char '(', TLParen)
   , (Char ')', TRParen)
   ]
 
 -- Construye el lexer completo para IMP
-construirLexerIMP :: [(MDD, Token)]
+construirLexerIMP :: [(MDD Token, Token)]
 construirLexerIMP = crearLexer patronesIMP
 
 -- Crea un lexer a partir de patrones de tokens
-crearLexer :: [(RegExp, Token)] -> [(MDD, Token)]
+crearLexer :: [(RegExp, Token)] -> [(MDD Token, Token)]
 crearLexer patrones = 
   [ (crearMDDParaPatron regex, token) | (regex, token) <- patrones ]
   where
@@ -76,7 +66,6 @@ combinarPatrones (r:rs) = Union r (combinarPatrones rs)
 -- Crea mapeo de estados finales a tokens
 crearMapeoTokens :: DFAInt -> [(RegExp, Token)] -> Map Int Token
 crearMapeoTokens dfa patrones = 
-  -- Por ahora, mapeo simple basado en prioridad
   -- Estados finales obtienen el primer token que coincida
   Map.fromList $ zip (Set.toList (estadosFinalesInt dfa)) (map snd patrones)
 
@@ -85,7 +74,7 @@ tokenizarIMP :: String -> [Token]
 tokenizarIMP = tokenizarConLexers construirLexerIMP
 
 -- Tokeniza usando múltiples MDDs
-tokenizarConLexers :: [(MDD, Token)] -> String -> [Token]
+tokenizarConLexers :: [(MDD Token, Token)] -> String -> [Token]
 tokenizarConLexers lexers entrada = tokenizarAux [] (saltarEspacios entrada)
   where
     tokenizarAux tokens [] = reverse tokens
@@ -99,7 +88,7 @@ saltarEspacios :: String -> String
 saltarEspacios = dropWhile (`elem` " \t\n\r")
 
 -- Encuentra la mejor coincidencia (maximal munch - más larga)
-encontrarMejorCoincidencia :: [(MDD, Token)] -> String -> Maybe (Token, String)
+encontrarMejorCoincidencia :: [(MDD Token, Token)] -> String -> Maybe (Token, String)
 encontrarMejorCoincidencia lexers input =
   let coincidencias = [ (token, resto, texto, length texto) 
                       | (mdd, token) <- lexers

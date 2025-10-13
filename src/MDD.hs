@@ -8,27 +8,26 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Debug.Trace
 
--- Estructura de datos para matching eficiente
-data MDD = MDD
-  { nodos :: Map Int Nodo                          -- Nodos del MDD
+
+data MDD a = MDD
+  { nodos :: Map Int (Nodo a)                      -- Nodos del MDD
   , raiz :: Int                                    -- Nodo raíz
   } deriving (Show, Eq)
 
 -- Nodo del MDD
-data Nodo = Nodo
+data Nodo a = Nodo
   { esAceptacion :: Bool                           -- Si es estado de aceptación
-  , tipoToken :: Maybe Token                       -- Tipo de token si es aceptación
+  , tipoToken :: Maybe a                           -- Tipo de token si es aceptación
   , transicionesNodo :: Map Char Int               -- Transiciones a otros nodos
   } deriving (Show, Eq)
 
--- Convierte DFA minimizado a MDD
-dfaAMDD :: DFAInt -> Map Int Token -> MDD
+-- Convierte DFA minimizado a MDD 
+dfaAMDD :: (Eq a, Ord a) => DFAInt -> Map Int a -> MDD a
 dfaAMDD dfa mapeoTokens = MDD
   { nodos = Map.fromList [(i, crearNodo i) | i <- Set.toList (estadosInt dfa)]
   , raiz = estadoInicialInt dfa
   }
   where
-    crearNodo :: Int -> Nodo
     crearNodo estado = Nodo
       { esAceptacion = estado `Set.member` estadosFinalesInt dfa
       , tipoToken = Map.lookup estado mapeoTokens
@@ -42,11 +41,11 @@ dfaAMDD dfa mapeoTokens = MDD
       }
 
 -- Ejecuta el MDD sobre una cadena de entrada
-ejecutarMDD :: MDD -> String -> Maybe (Token, String, String)
+ejecutarMDD :: MDD a -> String -> Maybe (a, String, String)
 ejecutarMDD mdd entrada = buscarCoincidencia mdd entrada (raiz mdd) "" Nothing
 
--- Busca la coincidencia más larga
-buscarCoincidencia :: MDD -> String -> Int -> String -> Maybe (Token, String, String) -> Maybe (Token, String, String)
+-- Busca la coincidencia más larga 
+buscarCoincidencia :: MDD a -> String -> Int -> String -> Maybe (a, String, String) -> Maybe (a, String, String)
 buscarCoincidencia mdd entrada estadoActual coincidenciaActual mejorCoincidencia =
   case Map.lookup estadoActual (nodos mdd) of
     Nothing -> mejorCoincidencia
@@ -66,8 +65,8 @@ buscarCoincidencia mdd entrada estadoActual coincidenciaActual mejorCoincidencia
                  buscarCoincidencia mdd resto siguienteEstado 
                                    (coincidenciaActual ++ [c]) nuevaMejor
 
--- Tokeniza una cadena completa usando el MDD
-tokenizar :: MDD -> String -> [(Token, String)]
+-- Tokeniza una cadena completa usando el MDD 
+tokenizar :: MDD a -> String -> [(a, String)]
 tokenizar mdd = tokenizarAux []
   where
     tokenizarAux tokens [] = reverse tokens
