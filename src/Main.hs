@@ -9,23 +9,22 @@ main = do
   args <- getArgs
   case args of
     [] -> do
-      -- Interactive mode
-      putStrLn "=== IMP Lexer ==="
-      putStrLn "Running test suite...\n"
-      runTests
+      putStrLn "=== Lexer IMP ==="
+      putStrLn "Uso: qlexers --archivo <archivo> | --codigo <codigo>"
     
-    ["--file", filename] -> do
-      -- File mode
-      content <- readFile filename
-      putStrLn $ "Tokenizing file: " ++ filename
-      putStrLn $ prettyTokens content
+    ["--archivo", filename] -> do
+      contenido <- readFile filename
+      putStrLn $ "Tokenizando archivo: " ++ filename
+      let tokens = lexer contenido
+      putStrLn $ "Tokens: " ++ show tokens
     
-    ["--test", code] -> do
-      -- Single test mode
-      putStrLn $ prettyTokens code
+    ["--codigo", codigo] -> do
+      putStrLn $ "Tokenizando: " ++ codigo
+      let tokens = lexer codigo
+      putStrLn $ "Tokens: " ++ show tokens
     
     _ -> do
-      putStrLn "Usage:"
-      putStrLn "  qlexers                    -- Run test suite"
-      putStrLn "  qlexers --file <file>      -- Tokenize file"
-      putStrLn "  qlexers --test \"<code>\"    -- Tokenize code string"
+      putStrLn "Uso:"
+      putStrLn "  qlexers                      -- Ejecutar pruebas"
+      putStrLn "  qlexers --archivo <archivo>  -- Tokenizar archivo"
+      putStrLn "  qlexers --codigo \"<código>\"  -- Tokenizar código"

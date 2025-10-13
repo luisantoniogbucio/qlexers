@@ -1,0 +1,6 @@
+x := 5;
+y := x + 1;
+if x <= 10 then
+  z := y * 2
+else
+  z := x - 1
