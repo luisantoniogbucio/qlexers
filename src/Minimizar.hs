@@ -1,173 +1,152 @@
 module Minimizar where
 
-import Automata (DFAInt(..))
+import Automata (DFAInt(..), Automaton(..), Transition(..))
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.List (foldl')
 
--- Partition: a set of sets of states
+-- particion: conjunto de conjuntos de estados
 type Partition = Set (Set Int)
 
--- ============================================================================
--- Hopcroft's Algorithm for DFA Minimization
--- ============================================================================
-
--- Main minimization function
+-- minimizacion via hopcroft: DFAInt -> DFAInt minimal
 minimize :: DFAInt -> DFAInt
-minimize dfa = 
-  let finalPartition = hopcroft dfa
-      -- Create new minimal DFA from partition
-  in buildMinimalDFA dfa finalPartition
+minimize dfa = buildMinimalDFA dfa (hopcroft dfa)
 
-
--- Hopcroft's algorithm
+-- algoritmo de hopcroft
 hopcroft :: DFAInt -> Partition
 hopcroft dfa = refine initialPartition workList
   where
-    -- Initial partition: accepting vs non-accepting states
-    accepting = dfaIntAccept dfa
-    nonAccepting = Set.difference (dfaIntStates dfa) accepting
+    core = dfaCore dfa
+    accepting' = accepting core
+    nonAccepting = Set.difference (states core) accepting'
     
-    initialPartition = if Set.null nonAccepting
-                       then Set.singleton accepting
-                       else if Set.null accepting
-                            then Set.singleton nonAccepting
-                            else Set.fromList [accepting, nonAccepting]
+    -- particion inicial: estados aceptadores vs no aceptadores
+    initialPartition = case (Set.null nonAccepting, Set.null accepting') of
+      (True, _) -> Set.singleton accepting'
+      (_, True) -> Set.singleton nonAccepting
+      _ -> Set.fromList [accepting', nonAccepting]
     
-    -- Initial work list contains the smaller of the two sets
-    workList = if Set.size accepting <= Set.size nonAccepting
-               then [accepting]
+    -- lista de trabajo inicial: el conjunto mas pequeno
+    workList = if Set.size accepting' <= Set.size nonAccepting
+               then [accepting']
                else [nonAccepting]
     
-    -- Refinement loop
+    -- bucle de refinamiento
     refine :: Partition -> [Set Int] -> Partition
     refine partition [] = partition
     refine partition (splitter:rest) =
-      let -- For each character, split partition
-          allChars = Set.toList (dfaIntAlphabet dfa)
+      let allChars = Set.toList (alphabet core)
           (newPartition, newWork) = foldl' 
             (\(p, w) c -> refineByChar dfa p w splitter c)
             (partition, rest)
             allChars
       in refine newPartition newWork
 
-
--- Refine partition based on a splitter set and character
+-- refinamiento por caracter: particiona segun pre-imagen
 refineByChar :: DFAInt -> Partition -> [Set Int] -> Set Int -> Char 
              -> (Partition, [Set Int])
 refineByChar dfa partition workList splitter char =
-  let -- Find all states that transition to splitter on char
+  let core = dfaCore dfa
+      Transition trans = transitions core
+      
+      -- pre-imagen: estados que transitan a splitter con char
       preImage = Set.filter
-        (\s -> case Map.lookup (s, char) (dfaIntTransitions dfa) of
+        (\s -> case Map.lookup (s, char) trans of
                  Just target -> Set.member target splitter
                  Nothing -> False)
-        (dfaIntStates dfa)
+        (states core)
       
-      -- Split each block in partition
+      -- dividir cada bloque en la particion
       (newPartition, addedToWork) = Set.foldl'
-        (splitBlock preImage)
+        (splitBlock preImage workList)
         (Set.empty, [])
         partition
       
   in (newPartition, workList ++ addedToWork)
   where
-    -- Split a single block
-    splitBlock :: Set Int -> (Partition, [Set Int]) -> Set Int 
+    -- dividir un bloque individual
+    splitBlock :: Set Int -> [Set Int] -> (Partition, [Set Int]) -> Set Int 
                -> (Partition, [Set Int])
-    splitBlock preImage (accPartition, accWork) block =
+    splitBlock preImage wl (accPartition, accWork) block =
       let inPre = Set.intersection block preImage
           notInPre = Set.difference block preImage
       in if Set.null inPre || Set.null notInPre
-         then (Set.insert block accPartition, accWork)  -- No split needed
+         then (Set.insert block accPartition, accWork)
          else 
-           let -- Both parts are non-empty, so we split
-               smaller = if Set.size inPre <= Set.size notInPre 
-                        then inPre 
-                        else notInPre
-               -- Add both parts to partition
+           let smaller = if Set.size inPre <= Set.size notInPre then inPre else notInPre
                newPartition = Set.insert inPre (Set.insert notInPre accPartition)
-               -- Add smaller part to work list (optimization)
-               newWork = if block `elem` accWork ++ workList
-                        then smaller : accWork  -- Replace with both parts
-                        else smaller : accWork  -- Just add smaller
+               newWork = if block `elem` wl
+                        then smaller : accWork
+                        else smaller : accWork
            in (newPartition, newWork)
-      where
-        workList = []  -- Access outer workList if needed
 
-
--- ============================================================================
--- Build Minimal DFA from Partition
--- ============================================================================
-
+-- construccion del dfa minimo desde la particion
 buildMinimalDFA :: DFAInt -> Partition -> DFAInt
 buildMinimalDFA dfa partition = DFAInt
-  { dfaIntStates = Set.fromList [0 .. Set.size partition - 1]
-  , dfaIntAlphabet = dfaIntAlphabet dfa
-  , dfaIntTransitions = minTransitions
-  , dfaIntStart = blockToInt Map.! findBlock (dfaIntStart dfa)
-  , dfaIntAccept = Set.map (blockToInt Map.!) acceptingBlocks
-  , dfaIntMapping = representativeMapping
+  { dfaCore = Automaton
+      { states = Set.fromList [0 .. Set.size partition - 1]
+      , alphabet = alphabet core
+      , transitions = Transition minTransitions
+      , start = blockToInt Map.! findBlock (start core)
+      , accepting = Set.map (blockToInt Map.!) acceptingBlocks
+      }
+  , stateIso = representativeMapping
   }
   where
-    -- Map each block to an integer
+    core = dfaCore dfa
+    Transition trans = transitions core
+    
+    -- mapeo de bloques a enteros
     blockList = Set.toList partition
     blockToInt = Map.fromList (zip blockList [0..])
     
-    -- Find which block contains a state
+    -- buscar el bloque que contiene un estado
     findBlock :: Int -> Set Int
     findBlock state = 
       case filter (Set.member state) blockList of
         (block:_) -> block
-        [] -> error "State not in any block"
+        [] -> error $ "state " ++ show state ++ " not in any block"
     
-    -- Find accepting blocks (blocks containing accept states)
+    -- bloques aceptadores
     acceptingBlocks = Set.filter
-      (\block -> not $ Set.null $ Set.intersection block (dfaIntAccept dfa))
+      (\block -> not . Set.null $ Set.intersection block (accepting core))
       partition
     
-    -- Build new transitions
+    -- transiciones del dfa minimo
     minTransitions = Map.fromList
       [ ((blockToInt Map.! block, c), blockToInt Map.! targetBlock)
       | block <- blockList
-      , let representative = Set.findMin block  -- Pick any state from block
-      , c <- Set.toList (dfaIntAlphabet dfa)
-      , Just target <- [Map.lookup (representative, c) (dfaIntTransitions dfa)]
+      , let representative = Set.findMin block
+      , c <- Set.toList (alphabet core)
+      , Just target <- [Map.lookup (representative, c) trans]
       , let targetBlock = findBlock target
       ]
     
-    -- Mapping from new states to original state sets
-    -- We'll use the original mapping through a representative
+    -- mapeo de estados nuevos a conjuntos originales
     representativeMapping = Map.fromList
       [ (blockToInt Map.! block, 
-         case Map.lookup (Set.findMin block) (dfaIntMapping dfa) of
+         case Map.lookup (Set.findMin block) (stateIso dfa) of
            Just original -> original
            Nothing -> Set.singleton (Set.findMin block))
       | block <- blockList
       ]
 
-
--- ============================================================================
--- Alternative: Simple Partition Refinement (easier to understand)
--- ============================================================================
-
--- Simpler version that's easier to debug but less efficient
+-- version simple: refinamiento hasta punto fijo
 minimizeSimple :: DFAInt -> DFAInt
 minimizeSimple dfa = buildMinimalDFA dfa (refineUntilStable dfa initialPartition)
   where
-    -- Initial partition: accepting vs non-accepting
-    accepting = dfaIntAccept dfa
-    nonAccepting = Set.difference (dfaIntStates dfa) accepting
+    core = dfaCore dfa
+    accepting' = accepting core
+    nonAccepting = Set.difference (states core) accepting'
     
-    initialPartition = if Set.null nonAccepting
-                       then Set.singleton accepting
-                       else if Set.null accepting
-                            then Set.singleton nonAccepting
-                            else Set.fromList [accepting, nonAccepting]
+    initialPartition = case (Set.null nonAccepting, Set.null accepting') of
+      (True, _) -> Set.singleton accepting'
+      (_, True) -> Set.singleton nonAccepting
+      _ -> Set.fromList [accepting', nonAccepting]
 
-
--- Repeatedly refine partition until stable
+-- punto fijo: refinar hasta estabilidad
 refineUntilStable :: DFAInt -> Partition -> Partition
 refineUntilStable dfa partition =
   let newPartition = refineOnce dfa partition
@@ -175,36 +154,33 @@ refineUntilStable dfa partition =
      then partition
      else refineUntilStable dfa newPartition
 
-
--- One refinement pass
+-- una pasada de refinamiento
 refineOnce :: DFAInt -> Partition -> Partition
 refineOnce dfa partition = Set.unions $ Set.map (splitBlock dfa partition) partition
 
-
--- Split a block based on current partition
+-- dividir un bloque segun firmas de transicion
 splitBlock :: DFAInt -> Partition -> Set Int -> Partition
-splitBlock dfa partition block =
-  if Set.size block <= 1
-  then Set.singleton block
-  else
-    let -- Group states by their transition signatures
-        signatures = Map.fromListWith Set.union
-          [(signature dfa partition state, Set.singleton state) 
-          | state <- Set.toList block]
-    in Set.fromList (Map.elems signatures)
+splitBlock dfa partition block
+  | Set.size block <= 1 = Set.singleton block
+  | otherwise =
+      let signatures = Map.fromListWith Set.union
+            [(signature dfa partition state, Set.singleton state) 
+            | state <- Set.toList block]
+      in Set.fromList (Map.elems signatures)
 
-
--- Compute signature of a state (which blocks it transitions to)
+-- firma de un estado: a que bloques transita
 signature :: DFAInt -> Partition -> Int -> Map Char Int
-signature dfa partition state = Map.fromList
-  [ (c, blockId)
-  | c <- Set.toList (dfaIntAlphabet dfa)
-  , Just target <- [Map.lookup (state, c) (dfaIntTransitions dfa)]
-  , let blockId = findBlockId partition target
-  ]
+signature dfa partition state = 
+  let core = dfaCore dfa
+      Transition trans = transitions core
+  in Map.fromList
+    [ (c, blockId)
+    | c <- Set.toList (alphabet core)
+    , Just target <- [Map.lookup (state, c) trans]
+    , let blockId = findBlockId partition target
+    ]
 
-
--- Find which block (as an ID) contains a state
+-- encontrar el id del bloque que contiene un estado
 findBlockId :: Partition -> Int -> Int
 findBlockId partition state =
   case filter (\(block, _) -> Set.member state block) 
@@ -212,23 +188,17 @@ findBlockId partition state =
     ((_, blockId):_) -> blockId
     [] -> -1
 
--- ============================================================================
--- Helper Functions
--- ============================================================================
-
--- Pretty print partition
+-- pretty printing y utilidades
 prettyPartition :: Partition -> String
 prettyPartition partition = unlines
   [ "Block " ++ show i ++ ": " ++ show (Set.toList block)
   | (block, i) <- zip (Set.toList partition) [0..]
   ]
 
--- Count states in partition
 partitionSize :: Partition -> Int
 partitionSize = Set.size
 
--- Verify minimization correctness (both DFAs should be equivalent)
--- This is a sanity check - returns True if sizes match
+-- verificacion: el minimo debe tener menos o igual estados
 verifyMinimization :: DFAInt -> DFAInt -> Bool
 verifyMinimization original minimal =
-  Set.size (dfaIntStates minimal) <= Set.size (dfaIntStates original)
+  Set.size (states $ dfaCore minimal) <= Set.size (states $ dfaCore original)

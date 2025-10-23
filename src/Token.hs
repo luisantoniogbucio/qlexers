@@ -1,40 +1,20 @@
 module Token where
 
--- Token types for IMP language
+-- tipos de token para el lenguaje imp
 data TokenType
-  -- Keywords
-  = TSkip
-  | TIf
-  | TThen
-  | TElse
-  | TWhile
-  | TDo
-  | TTrue
-  | TFalse
-  | TNot
-  | TAnd
-  -- Identifiers and literals
-  | TId String
-  | TNum Int
-  -- Operators
-  | TPlus
-  | TMinus
-  | TTimes
-  | TEq
-  | TLeq
-  | TAssign
-  -- Delimiters
-  | TSemi
-  | TLParen
-  | TRParen
-  deriving (Show, Eq, Ord)  -- Add Ord here
+  = TSkip | TIf | TThen | TElse | TWhile | TDo     -- keywords
+  | TTrue | TFalse | TNot | TAnd                    -- boolean ops
+  | TId String | TNum Int                           -- identifiers & literals
+  | TPlus | TMinus | TTimes | TEq | TLeq | TAssign  -- operators
+  | TSemi | TLParen | TRParen                       -- delimiters
+  deriving (Show, Eq, Ord)
 
--- Token with position information (optional but useful)
+-- token con informacion de posicion
 data Token = Token
   { tokenType :: TokenType
-  , tokenPos  :: Int  -- character position in input
+  , tokenPos  :: Int
   } deriving (Show, Eq)
 
--- Helper constructor
+-- constructor: alias para Token
 mkToken :: TokenType -> Int -> Token
 mkToken = Token

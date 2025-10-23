@@ -9,192 +9,144 @@ import MDD
 import Data.Char (isSpace)
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.Bifunctor (first)
+import Control.Arrow ((>>>))
+import Control.Monad (guard)
 
--- ============================================================================
--- Complete Lexer for IMP Language
--- ============================================================================
-
--- Lexer result: either error or list of tokens
+-- lexer como morfismo: String -> Either Error [Token]
 type LexerResult = Either String [Token]
 
--- Main lexer function
+-- scanner principal: entrada -> salida tokenizada
 lexer :: String -> LexerResult
-lexer input = tokenize impMDD input 0
+lexer = scan impMDD 0
   where
-    tokenize :: MDD -> String -> Int -> LexerResult
-    tokenize mdd [] _ = Right []
-    tokenize mdd str pos
-      -- Skip whitespace
-      | not (null str) && isSpace (head str) =
-          let (spaces, rest) = span isSpace str
-              newPos = pos + length spaces
-          in tokenize mdd rest newPos
-      
-      -- Try to match a token
-      | otherwise =
-          case maximumMunch mdd str of
-            Just (tokenType, len, remaining) ->
-              let token = Token tokenType pos
-              in case tokenize mdd remaining (pos + len) of
-                   Right tokens -> Right (token : tokens)
-                   Left err -> Left err
-            
-            Nothing ->
-              Left $ "Lexical error at position " ++ show pos ++ 
-                     ": unexpected character '" ++ take 1 str ++ "'"
+    scan :: MDD -> Int -> String -> LexerResult
+    scan _ _ [] = Right []
+    scan mdd pos str
+      | isSpace (head str) = scan mdd (pos + n) rest
+      | otherwise = do
+          (tok, len, rest') <- maybeToEither lexError $ maximumMunch mdd str
+          let token = Token tok pos
+          tokens <- scan mdd (pos + len) rest'
+          return (token : tokens)
+      where
+        (spaces, rest) = span isSpace str
+        n = length spaces
+        lexError = "lexical error at position " ++ show pos ++ 
+                   ": unexpected '" ++ take 1 str ++ "'"
 
-
--- ============================================================================
--- IMP Language Token Specifications
--- ============================================================================
-
--- Build complete MDD for IMP language
+-- mdd del lenguaje imp: union de todos los patrones
 impMDD :: MDD
-impMDD = buildMDD
-  -- Keywords (highest priority)
-  [ (TSkip,  minimizeDFA (string "skip"),   priorityKeyword)
-  , (TIf,    minimizeDFA (string "if"),     priorityKeyword)
-  , (TThen,  minimizeDFA (string "then"),   priorityKeyword)
-  , (TElse,  minimizeDFA (string "else"),   priorityKeyword)
-  , (TWhile, minimizeDFA (string "while"),  priorityKeyword)
-  , (TDo,    minimizeDFA (string "do"),     priorityKeyword)
-  , (TTrue,  minimizeDFA (string "true"),   priorityKeyword)
-  , (TFalse, minimizeDFA (string "false"),  priorityKeyword)
-  , (TNot,   minimizeDFA (string "not"),    priorityKeyword)
-  , (TAnd,   minimizeDFA (string "and"),    priorityKeyword)
-  
-  -- Multi-character operators
-  , (TAssign, minimizeDFA (string ":="),    priorityOperator)
-  , (TLeq,    minimizeDFA (string "<="),    priorityOperator)
-  
-  -- Single-character operators
-  , (TPlus,  minimizeDFA (Char '+'),        priorityOperator)
-  , (TMinus, minimizeDFA (Char '-'),        priorityOperator)
-  , (TTimes, minimizeDFA (Char '*'),        priorityOperator)
-  , (TEq,    minimizeDFA (Char '='),        priorityOperator)
-  
-  -- Delimiters
-  , (TSemi,   minimizeDFA (Char ';'),       priorityDelimiter)
-  , (TLParen, minimizeDFA (Char '('),       priorityDelimiter)
-  , (TRParen, minimizeDFA (Char ')'),       priorityDelimiter)
-  
-  -- Identifiers: [a-z][a-z0-9]* (lower priority than keywords)
-  , (TId "", minimizeDFA identifierRegex,   priorityIdentifier)
-  
-  -- Numbers: [0-9]+
-  , (TNum 0, minimizeDFA numberRegex,       priorityNumber)
+impMDD = buildMDD $ concat
+  [ keywords
+  , multiCharOps
+  , singleCharOps
+  , delimiters
+  , [ (TId "", minimizeRE identifierRegex, priorityIdentifier)
+    , (TNum 0, minimizeRE numberRegex, priorityNumber)
+    ]
   ]
 
+-- especificacion lexica por categorias
+keywords :: [(TokenType, DFAInt, Int)]
+keywords = 
+  [ (TSkip,  "skip")
+  , (TIf,    "if")
+  , (TThen,  "then")
+  , (TElse,  "else")
+  , (TWhile, "while")
+  , (TDo,    "do")
+  , (TTrue,  "true")
+  , (TFalse, "false")
+  , (TNot,   "not")
+  , (TAnd,   "and")
+  ] >>= \(tok, str) -> return (tok, minimizeRE (string str), priorityKeyword)
 
--- Regular expressions for identifiers and numbers
+multiCharOps :: [(TokenType, DFAInt, Int)]
+multiCharOps =
+  [ (TAssign, ":=")
+  , (TLeq,    "<=")
+  ] >>= \(tok, str) -> return (tok, minimizeRE (string str), priorityOperator)
+
+singleCharOps :: [(TokenType, DFAInt, Int)]
+singleCharOps =
+  [ (TPlus,  '+')
+  , (TMinus, '-')
+  , (TTimes, '*')
+  , (TEq,    '=')
+  ] >>= \(tok, c) -> return (tok, minimizeRE (Char c), priorityOperator)
+
+delimiters :: [(TokenType, DFAInt, Int)]
+delimiters =
+  [ (TSemi,   ';')
+  , (TLParen, '(')
+  , (TRParen, ')')
+  ] >>= \(tok, c) -> return (tok, minimizeRE (Char c), priorityDelimiter)
+
+-- expresiones regulares de componentes lexicos
 identifierRegex :: RegEx
 identifierRegex = Concat lowercase (Star (Union lowercase digit))
 
 numberRegex :: RegEx
 numberRegex = Plus digit
 
+-- pipeline de compilacion: RE -> DFAInt minimizado
+minimizeRE :: RegEx -> DFAInt
+minimizeRE = thompson >>> removeEpsilon >>> subsetConstruction >>> dfaToInt >>> minimize
 
--- Helper: Convert RegEx to minimized DFAInt
-minimizeDFA :: RegEx -> DFAInt
-minimizeDFA regex = 
-  let nfae = thompson regex
-      nfa = removeEpsilon nfae
-      dfa = subsetConstruction nfa
-      dfaInt = dfaToInt dfa
-  in minimize dfaInt
-
-
--- ============================================================================
--- Enhanced Lexer with Token Text Extraction
--- ============================================================================
-
--- Lexer that also captures the actual text of tokens (for identifiers/numbers)
-lexerWithText :: String -> Either String [Token]
-lexerWithText input = tokenizeWithText impMDD input 0
+-- lexer con extraccion de atributos (valor del token)
+lexerWithText :: String -> LexerResult
+lexerWithText = scanWithText impMDD 0
   where
-    tokenizeWithText :: MDD -> String -> Int -> Either String [Token]
-    tokenizeWithText mdd [] _ = Right []
-    tokenizeWithText mdd str pos
-      -- Skip whitespace
-      | not (null str) && isSpace (head str) =
-          let (spaces, rest) = span isSpace str
-              newPos = pos + length spaces
-          in tokenizeWithText mdd rest newPos
-      
-      -- Try to match a token
-      | otherwise =
-          case maximumMunch mdd str of
-            Just (tokenType, len, remaining) ->
-              let tokenText = take len str
-                  -- Enhance token with actual text for ID and NUM
-                  enhancedToken = case tokenType of
-                    TId _ -> Token (TId tokenText) pos
-                    TNum _ -> Token (TNum (read tokenText :: Int)) pos
-                    _ -> Token tokenType pos
-              in case tokenizeWithText mdd remaining (pos + len) of
-                   Right tokens -> Right (enhancedToken : tokens)
-                   Left err -> Left err
-            
-            Nothing ->
-              Left $ "Lexical error at position " ++ show pos ++ 
-                     ": unexpected character '" ++ take 1 str ++ "'"
+    scanWithText :: MDD -> Int -> String -> LexerResult
+    scanWithText _ _ [] = Right []
+    scanWithText mdd pos str
+      | isSpace (head str) = scanWithText mdd (pos + n) rest
+      | otherwise = do
+          (tok, len, rest') <- maybeToEither lexError $ maximumMunch mdd str
+          let lexeme = take len str
+              token = enhanceToken tok lexeme pos
+          tokens <- scanWithText mdd (pos + len) rest'
+          return (token : tokens)
+      where
+        (spaces, rest) = span isSpace str
+        n = length spaces
+        lexError = "lexical error at position " ++ show pos ++ 
+                   ": unexpected '" ++ take 1 str ++ "'"
 
+-- enhancer: asigna atributo al token (id/num llevan lexema)
+enhanceToken :: TokenType -> String -> Int -> Token
+enhanceToken (TId _) lexeme pos = Token (TId lexeme) pos
+enhanceToken (TNum _) lexeme pos = Token (TNum (read lexeme)) pos
+enhanceToken tok _ pos = Token tok pos
 
--- ============================================================================
--- Convenience Functions
--- ============================================================================
+-- utilidad: Maybe -> Either con mensaje
+maybeToEither :: e -> Maybe a -> Either e a
+maybeToEither err Nothing = Left err
+maybeToEither _ (Just x) = Right x
 
--- Tokenize and return just token types (ignoring position)
+-- proyeccion: tokens -> tipos
 tokenTypes :: String -> Either String [TokenType]
-tokenTypes input = case lexerWithText input of
-  Right tokens -> Right (map tokenType tokens)
-  Left err -> Left err
+tokenTypes = lexerWithText >>> fmap (map tokenType)
 
-
--- Tokenize and pretty print
+-- pretty printer
 prettyTokens :: String -> String
 prettyTokens input = case lexerWithText input of
   Right tokens -> unlines [show i ++ ": " ++ show tok | (i, tok) <- zip [1..] tokens]
   Left err -> "ERROR: " ++ err
 
-
--- Check if input is lexically valid
+-- predicado de validez
 isValid :: String -> Bool
-isValid input = case lexer input of
-  Right _ -> True
-  Left _ -> False
+isValid = lexer >>> either (const False) (const True)
 
-
--- ============================================================================
--- Test Cases for IMP
--- ============================================================================
-
--- Test: simple assignment
-test1 :: String
+-- casos de prueba
+test1, test2, test3, test4, test5, test6, test7 :: String
 test1 = "x := 5"
-
--- Test: arithmetic expression
-test2 :: String
 test2 = "y := x + 3 * 2"
-
--- Test: conditional
-test3 :: String
 test3 = "if x <= 10 then skip else y := 1"
-
--- Test: while loop
-test4 :: String
 test4 = "while x <= 100 do x := x + 1"
-
--- Test: complete program
-test5 :: String
 test5 = "x := 0; while x <= 5 do x := x + 1"
-
--- Test: boolean expressions
-test6 :: String
 test6 = "if true and not false then skip else skip"
-
--- Test: complex program
-test7 :: String
 test7 = unlines
   [ "x := 0;"
   , "y := 1;"
@@ -202,69 +154,42 @@ test7 = unlines
   , "  y := y * 2"
   ]
 
-
--- Run all tests
+-- suite de pruebas
 runTests :: IO ()
 runTests = do
+  let tests = [("Simple assignment", test1)
+              ,("Arithmetic expression", test2)
+              ,("Conditional", test3)
+              ,("While loop", test4)
+              ,("Complete program", test5)
+              ,("Boolean expressions", test6)
+              ,("Complex program", test7)]
+  
   putStrLn "=== IMP Lexer Tests ===\n"
-  
-  putStrLn "Test 1: Simple assignment"
-  putStrLn test1
-  putStrLn $ prettyTokens test1
-  
-  putStrLn "\nTest 2: Arithmetic expression"
-  putStrLn test2
-  putStrLn $ prettyTokens test2
-  
-  putStrLn "\nTest 3: Conditional"
-  putStrLn test3
-  putStrLn $ prettyTokens test3
-  
-  putStrLn "\nTest 4: While loop"
-  putStrLn test4
-  putStrLn $ prettyTokens test4
-  
-  putStrLn "\nTest 5: Complete program"
-  putStrLn test5
-  putStrLn $ prettyTokens test5
-  
-  putStrLn "\nTest 6: Boolean expressions"
-  putStrLn test6
-  putStrLn $ prettyTokens test6
-  
-  putStrLn "\nTest 7: Complex program"
-  putStrLn test7
-  putStrLn $ prettyTokens test7
+  mapM_ runTest tests
+  where
+    runTest (name, input) = do
+      putStrLn $ "Test: " ++ name
+      putStrLn input
+      putStrLn $ prettyTokens input
+      putStrLn ""
 
-
--- ============================================================================
--- Statistics and Analysis
--- ============================================================================
-
--- Count tokens in input
+-- estadisticas: conteo y distribucion
 tokenCount :: String -> Either String Int
-tokenCount input = case lexer input of
-  Right tokens -> Right (length tokens)
-  Left err -> Left err
+tokenCount = lexer >>> fmap length
 
-
--- Get token type distribution
 tokenDistribution :: String -> Either String [(TokenType, Int)]
-tokenDistribution input = case tokenTypes input of
-  Right types -> 
-    let count t = length (filter (== t) types)
-        unique = Set.toList (Set.fromList types)
-    in Right [(t, count t) | t <- unique]
-  Left err -> Left err
+tokenDistribution input = do
+  types <- tokenTypes input
+  let unique = Set.toList . Set.fromList $ types
+      count t = length (filter (== t) types)
+  return [(t, count t) | t <- unique]
 
-
--- Lexer statistics
 lexerStats :: String -> String
 lexerStats input = case lexerWithText input of
-  Right tokens ->
-    unlines
-      [ "Total tokens: " ++ show (length tokens)
-      , "Token types: " ++ show (Set.size $ Set.fromList $ map tokenType tokens)
-      , "Input length: " ++ show (length input)
-      ]
+  Right tokens -> unlines
+    [ "Total tokens: " ++ show (length tokens)
+    , "Token types: " ++ show (Set.size . Set.fromList . map tokenType $ tokens)
+    , "Input length: " ++ show (length input)
+    ]
   Left err -> "ERROR: " ++ err

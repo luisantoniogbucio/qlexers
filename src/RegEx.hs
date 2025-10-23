@@ -3,39 +3,51 @@ module RegEx where
 import Data.Set (Set)
 import qualified Data.Set as Set
 
--- Regular Expression algebraic data type
+-- algebra de expresiones regulares sobre un alfabeto
 data RegEx
-  = Empty                    -- ε (epsilon - empty string)
-  | Epsilon                  -- explicit epsilon (alternative naming)
-  | Char Char                -- single character
-  | CharClass (Set Char)     -- character class [abc] = {a,b,c}
-  | Range Char Char          -- character range [a-z]
-  | Concat RegEx RegEx       -- concatenation: r1 · r2
-  | Union RegEx RegEx        -- alternation: r1 | r2
-  | Star RegEx               -- Kleene star: r*
-  | Plus RegEx               -- one or more: r+
+  = Empty                    -- lenguaje vacio
+  | Epsilon                  -- cadena vacia: {ε}
+  | Char Char                -- simbolo unico: {c}
+  | CharClass (Set Char)     -- clase: {a,b,c}
+  | Range Char Char          -- rango: [a-z]
+  | Concat RegEx RegEx       -- concatenacion: L(r) · L(s)
+  | Union RegEx RegEx        -- union: L(r) ∪ L(s)
+  | Star RegEx               -- cerradura de Kleene: L(r)*
+  | Plus RegEx               -- cerradura positiva: L(r)+
   deriving (Show, Eq)
 
--- Smart constructors for common patterns
-digit :: RegEx
-digit = Range '0' '9'
-
-letter :: RegEx
-letter = Union (Range 'a' 'z') (Range 'A' 'Z')
-
-lowercase :: RegEx
+-- operaciones derivadas (combinadores)
+digit, letter, lowercase, uppercase :: RegEx
+digit     = Range '0' '9'
+letter    = Union lowercase uppercase
 lowercase = Range 'a' 'z'
+uppercase = Range 'A' 'Z'
 
--- Helper: string to RegEx
+-- levantamiento de cadenas: String -> RegEx
+-- morfismo del monoide libre (String, ·, ε) al algebra de regex
 string :: String -> RegEx
-string [] = Empty
-string [c] = Char c
-string (c:cs) = Concat (Char c) (string cs)
+string = foldr (Concat . Char) Epsilon
 
--- Helper: optional r?
+-- opcional: r? ≡ ε | r
 optional :: RegEx -> RegEx
-optional r = Union r Empty
+optional r = Union Epsilon r
 
--- Examples for IMP tokens (we'll use these later)
--- keyword "skip" = string "skip"
--- identifier = Concat lowercase (Star (Union lowercase digit))
+-- ejemplos para imp
+keyword :: String -> RegEx
+keyword = string
+
+identifier :: RegEx
+identifier = Concat lowercase (Star (Union lowercase digit))
+
+-- espacios: uno o mas caracteres de espaciado
+whitespace :: RegEx
+whitespace = Plus (Union (Char ' ') (Union (Char '\t') (Char '\n')))
+
+-- numero natural: [1-9][0-9]* | 0
+natural :: RegEx
+natural = Union (Char '0') (Concat nonzero (Star digit))
+  where nonzero = Range '1' '9'
+
+-- numero entero: -?nat
+integer :: RegEx
+integer = Concat (optional (Char '-')) natural
